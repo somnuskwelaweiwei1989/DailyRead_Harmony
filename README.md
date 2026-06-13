@@ -1,7 +1,7 @@
 # DailyRead · 每日阅读（鸿蒙端）
 
 > 基于 HarmonyOS ArkTS 开发的每日阅读应用，支持文章阅读、背概念、背穴位、WebDAV 云同步等功能。
-
+配套Windows端的文章&概念管理器：https://github.com/somnuskwelaweiwei1989/article-concept-manager
 ---
 
 ## 📖 项目简介
