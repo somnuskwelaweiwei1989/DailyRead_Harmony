@@ -55,4 +55,27 @@ export class CheckInRepository {
     const predicates = new relationalStore.RdbPredicates(TableNames.CHECKINS);
     return await db.delete(predicates);
   }
+
+  /**
+   * 查询指定日期下已打卡的文章 ID 集合
+   * 用于：首页渲染时，即便 daily_task_items.isCheckedIn 仍为 0，
+   * 只要 check_in_records 中存在该日记录，就视为已打卡
+   */
+  async getArticleIdsCheckedInOnDate(date: string): Promise<Set<number>> {
+    const db = AppDatabase.getInstance().getDb();
+    const ids: Set<number> = new Set<number>();
+    try {
+      const predicates = new relationalStore.RdbPredicates(TableNames.CHECKINS);
+      predicates.equalTo('checkInDate', date);
+      const result: relationalStore.ResultSet = await db.query(predicates);
+      const colArticleId: number = result.getColumnIndex('articleId');
+      while (result.goToNextRow()) {
+        ids.add(result.getLong(colArticleId));
+      }
+      result.close();
+    } catch (e) {
+      console.error('getArticleIdsCheckedInOnDate error:', JSON.stringify(e));
+    }
+    return ids;
+  }
 }

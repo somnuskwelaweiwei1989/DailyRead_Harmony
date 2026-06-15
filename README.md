@@ -294,7 +294,9 @@ hvigorw clean
 
 ```
 首页 (Home)
-  ├─ 今日任务列表（文章 + 必读标记）
+  ├─ 今日目标（字数、目标率、完成数/总数）
+  ├─ 今日任务列表（文章 + 必读标记 + ✓ 打卡完成状态）
+  │   ├─ "📖 随机阅读"按钮 → 从**未完成文章**中随机抽取一篇进入阅读页
   │   └─ 点击文章 → 阅读页 (Reader)
   └─ 底栏：文章管理 / 随心阅读 / 背穴位 / 背概念 / 设置
 
@@ -406,6 +408,40 @@ HarmonyOS 对以下能力在 API 11+ 默认开放，不需要写入 `requestPerm
 | 数据库写入 | 所有表字段修改必须在 `AppDatabase.init()` 中加入对应的 `ALTER TABLE` 升级语句 |
 | 时间格式 | 统一 ISO 8601（`new Date().toISOString()`） |
 | 中文编码 | JSON 解析前做字符容错，避免中文乱码 |
+
+---
+
+## 🆙 版本更新日志
+
+### v1.5.0 — 2026-06-16
+
+**🐛 Bug 修复：今日阅读列表"已完成"状态显示不正确**
+
+- **问题**：在阅读页完成打卡后点击"←"返回首页，首页任务列表仍显示该文章未完成（图标为 ○ 而非 ✓，底色未变紫），但进入阅读页能看到"已打卡"状态。
+- **根因**：
+  1. `router.back()` 返回时，Home 页面可能走**缓存恢复**而非重建，`aboutToAppear()` / `loadData()` 不会重新执行
+  2. `AppStorage` 的 `dataRefreshSignal` 在 Home 页面不可见或监听不生效
+  3. `@State tasks[i].isCheckedIn` 来自 `daily_task_items` 表，但打卡成功后该字段可能尚未被同步更新
+- **修复方案**（三层保障）：
+  1. **渲染层实时判定**：Home 中 `TaskCard` 的 `isCheckedIn` 改为**直接调用同步方法** `isArticleCheckedIn(articleId, item.isCheckedIn)`，不再依赖异步刷新
+  2. **AppStorage 实时同步**：新增 `todayCheckedInIds` 键，格式为 `"2026-06-16|id1,id2,id3"`，Reader 打卡成功后立即写入；Home 用 `@StorageLink` 实时感知并触发重新渲染
+  3. **DB 启动同步**：Home `aboutToAppear` 中调用 `syncTodayCheckedInIdsToStorage()`，从 `check_in_records` 表读取今日打卡文章并写入 AppStorage，确保当日首次启动也能正确显示
+- **涉及文件**：
+  - [Home.ets](entry/src/main/ets/pages/Home.ets) — `@StorageLink('todayCheckedInIds')`、`syncTodayCheckedInIdsToStorage()`、`isArticleCheckedIn()`、TaskCard 渲染改为内联调用
+  - [Reader.ets](entry/src/main/ets/pages/Reader.ets) — `handleCheckIn()` 中写入 AppStorage `todayCheckedInIds`
+
+**✨ 新功能：随机阅读按钮**
+
+- **位置**：首页"今日任务"标题行右侧
+- **图标**：📖（图书图标）+ 文字"随机阅读"，浅灰胶囊背景
+- **行为**：
+  1. 筛选今日任务列表中 **isCheckedIn=false** 的文章
+  2. `Math.random()` 随机抽取一篇
+  3. `router.pushUrl` 跳转到阅读页（Reader）
+  4. 如果所有文章都已完成 → Toast 提示 "所有文章都已完成"
+- **涉及文件**：
+  - [Home.ets](entry/src/main/ets/pages/Home.ets) — 新增 `openRandomUncheckedArticle()` 方法 + build 中插入按钮 Row
+  - 新增 `import promptAction from '@ohos.promptAction'`（用于空列表提示）
 
 ---
 

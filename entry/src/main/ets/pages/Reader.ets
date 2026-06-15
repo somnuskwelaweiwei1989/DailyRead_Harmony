@@ -119,58 +119,79 @@ struct ReaderPage {
   }
 
   /**
-   * 打卡成功后直接调用：文章表的打卡天数 +1 并重新计算完成率
+   * 打卡后调用：将文章打卡天数 +1 并重新计算完成率。
+   * 关键优化：
+   *  - UI 状态立即更新为"已打卡"（避免用户反复点击）
+   *  - CheckInRecord 先写入（作为"已打卡"的最终依据）
+   *  - 文章打卡天数更新与任务项标记并行执行（减少用户等待）
+   *  - 不再强制导航返回——由用户决定何时点击返回；
+   *    首页 aboutToShow 会通过 CheckInRecord 交叉校验自动识别为已打卡
    */
   async handleCheckIn(): Promise<void> {
     if (this.isCheckedIn || this.article === null) {
       return;
     }
 
+    // 立即更新 UI，避免反复点击
+    this.isCheckedIn = true;
+
+    const todayDate: Date = new Date();
+    const year: number = todayDate.getFullYear();
+    const month: string = (todayDate.getMonth() + 1).toString().padStart(2, '0');
+    const day: string = todayDate.getDate().toString().padStart(2, '0');
+    const dateStr: string = `${year}-${month}-${day}`;
+
     try {
-      // 1. 先写入打卡记录表（保留打卡明细）
+      // 1. 写入打卡记录（这是"已打卡"的最终依据，首页会据此做交叉校验）
       const record: CheckInRecord = new CheckInRecord();
       record.articleId = this.article.id;
-      const todayDate: Date = new Date();
-      const year: number = todayDate.getFullYear();
-      const month: string = (todayDate.getMonth() + 1).toString().padStart(2, '0');
-      const day: string = todayDate.getDate().toString().padStart(2, '0');
-      const dateStr: string = `${year}-${month}-${day}`;
       record.checkInDate = dateStr;
       record.checkInTime = dateStr;
       record.lastModified = new Date().toISOString();
       await CheckInRepository.getInstance().insertCheckInRecord(record);
-      this.isCheckedIn = true;
 
-      // 2. 更新文章表的打卡天数和完成率（核心逻辑在这里，不依赖日期解析）
+      // === 关键修复 A: 立即写入 AppStorage 今日打卡文章 ID 列表 ===
+      // 格式: "日期|id1,id2,id3"（带日期校验，跨天自动失效）
+      // Home 页面用 @StorageLink 直接读取，不依赖 aboutToShow/@Watch
+      const storageKey: string = 'todayCheckedInIds';
+      const existingRaw: string = AppStorage.get(storageKey) || '';
+      const pipeIdx: number = existingRaw.indexOf('|');
+      const existingDate: string = pipeIdx >= 0 ? existingRaw.substring(0, pipeIdx) : '';
+      let idsPart: string = '';
+      if (existingDate === dateStr) {
+        idsPart = pipeIdx >= 0 ? existingRaw.substring(pipeIdx + 1) : '';
+      } else {
+        idsPart = ''; // 跨天，重置列表
+      }
+      const newId: string = this.article.id.toString();
+      // 如果该文章 ID 不在现有列表中，追加（用分隔符包裹避免子串匹配问题）
+      const wrappedIds: string = ',' + idsPart + ',';
+      if (wrappedIds.indexOf(',' + newId + ',') < 0) {
+        const newIds: string = idsPart.length > 0 ? idsPart + ',' + newId : newId;
+        AppStorage.set(storageKey, dateStr + '|' + newIds);
+      }
+      // 发信号给 Home（如果 @Watch 能触发的话也能刷新）
+      AppStorage.set('dataRefreshSignal', Date.now().toString());
+
+      // 2. 更新文章打卡天数（checkInDays +1，重新计算完成率）
       const rate: number = await ArticleRepository.getInstance().incrementCheckInDays(this.article.id);
 
-      // 3. 标记今日任务中的文章已完成
-      // 先刷新一遍，确保获取到最新的 taskId
-      const todayTaskRefreshed = await DailyTaskRepository.getInstance().getTodayTask();
-      console.info('Reader.handleCheckIn: todayTask.id=' + (todayTaskRefreshed ? todayTaskRefreshed.id : 'null')
-        + '，count=' + (todayTaskRefreshed ? todayTaskRefreshed.count : 'N/A')
-        + '，items.length=' + (todayTaskRefreshed ? todayTaskRefreshed.items.length : 'N/A'));
-      if (todayTaskRefreshed && todayTaskRefreshed.id && todayTaskRefreshed.id > 0) {
-        await DailyTaskRepository.getInstance().markArticleChecked(todayTaskRefreshed.id, this.article.id);
-        console.info('Reader.handleCheckIn: markArticleChecked 已执行');
+      // 3. 标记今日任务项中的对应文章为已打卡（若任务记录存在）
+      const todayTask = await DailyTaskRepository.getInstance().getTodayTask();
+      if (todayTask && todayTask.id && todayTask.id > 0) {
+        await DailyTaskRepository.getInstance().markArticleChecked(todayTask.id, this.article.id);
       } else {
         console.warn('Reader.handleCheckIn: todayTask.id 无效，跳过 markArticleChecked');
       }
 
-      // 4. 触发全局刷新信号，并强制重新导航到首页
-      // 使用 setTimeout 延迟执行，确保所有数据库写操作已完全提交后再导航
-      setTimeout(() => {
-        console.info('Reader.handleCheckIn: 准备强制刷新首页');
-        // 先设置刷新信号（触发 @Watch 响应）
-        AppStorage.set('dataRefreshSignal', Date.now().toString());
-        // 然后强制 replace 到首页，确保首页完全重新加载
-        router.replaceUrl({ url: 'pages/Home' });
-        console.info('Reader.handleCheckIn: 已导航到首页');
-      }, 100);
+      // 再次发信号（保证完成率也更新）
+      AppStorage.set('dataRefreshSignal', Date.now().toString());
 
       promptAction.showToast({ message: `打卡成功，完成率 ${rate}%`, duration: 2000 });
     } catch (e) {
+      this.isCheckedIn = false;
       console.error('打卡失败: ' + JSON.stringify(e));
+      promptAction.showToast({ message: '打卡失败，请重试', duration: 2000 });
     }
   }
 
@@ -291,7 +312,10 @@ struct ReaderPage {
             }
             .layoutWeight(1)
             .onClick(() => {
-              router.back();
+              // 关键修复 #3: 用 replaceUrl 替代 back，强制 Home 页面重建
+              // （避免 router.back() 后 Home 的 aboutToShow/@Watch 不触发的问题）
+              AppStorage.set('dataRefreshSignal', Date.now().toString());
+              router.replaceUrl({ url: 'pages/Home' });
             });
 
             Text(this.timerText)
