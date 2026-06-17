@@ -16,6 +16,8 @@ struct ReaderPage {
   @State article: Article | null = null;
   @State articlePixelMap: image.PixelMap | null = null;
   @State articlePixelRatio: number = 1.0; // width / height，用于等比自适应
+  @State articleImageWidth: number = 0; // 图片原始宽度
+  @State articleImageHeight: number = 0; // 图片原始高度
   @State isLoading: boolean = true;
   @State isCheckedIn: boolean = false;
   @State showBars: boolean = false;
@@ -60,6 +62,8 @@ struct ReaderPage {
             ctx, this.article.imagewebp
           );
           this.articlePixelMap = sized.pixelMap;
+          this.articleImageWidth = sized.width;
+          this.articleImageHeight = sized.height;
           if (sized.height > 0) {
             this.articlePixelRatio = sized.width / sized.height;
           } else {
@@ -69,10 +73,14 @@ struct ReaderPage {
           console.error('Reader: 图片解码失败: ' + JSON.stringify(imgErr));
           this.articlePixelMap = null;
           this.articlePixelRatio = 1.0;
+          this.articleImageWidth = 0;
+          this.articleImageHeight = 0;
         }
       } else {
         this.articlePixelMap = null;
         this.articlePixelRatio = 1.0;
+        this.articleImageWidth = 0;
+        this.articleImageHeight = 0;
       }
 
       const todayDate: Date = new Date();
@@ -267,15 +275,32 @@ struct ReaderPage {
                   .textAlign(TextAlign.Start);
 
                 // ===== 文章图片（WebP）=====
-                // 宽度 100%，高度按原图比例自适应
+                // 如果图片原始宽度小于500px，显示原尺寸
+                // 如果图片原始宽度大于等于500px，宽度100%，高度按原比例自适应
                 if (this.articlePixelMap !== null) {
-                  Image(this.articlePixelMap)
+                  if (this.articleImageWidth > 0 && this.articleImageWidth < 500) {
+                    // 图片宽度小于500px，使用原始尺寸居中显示
+                    Row() {
+                      Image(this.articlePixelMap)
+                        .width(this.articleImageWidth)
+                        .height(this.articleImageHeight)
+                        .objectFit(ImageFit.Fill)
+                        .borderRadius(8)
+                        .backgroundColor('#F5F5F5');
+                    }
                     .width('100%')
-                    .aspectRatio(this.articlePixelRatio)
-                    .margin({ top: 24 })
-                    .borderRadius(8)
-                    .objectFit(ImageFit.Auto)
-                    .backgroundColor('#F5F5F5');
+                    .justifyContent(FlexAlign.Center)
+                    .margin({ top: 24 });
+                  } else {
+                    // 图片宽度大于等于500px，宽度100%，高度按比例自适应
+                    Image(this.articlePixelMap)
+                      .width('100%')
+                      .aspectRatio(this.articlePixelRatio)
+                      .margin({ top: 24 })
+                      .borderRadius(8)
+                      .objectFit(ImageFit.Auto)
+                      .backgroundColor('#F5F5F5');
+                  }
                 }
 
                 Column() {

@@ -290,7 +290,8 @@ struct ClinicalStudyPage {
           .layoutWeight(1)
           .scrollBar(BarState.Auto)
           .scrollBarColor('#CCCCCC')
-          .scrollBarWidth(4);
+          .scrollBarWidth(4)
+          .align(Alignment.Top);
 
           Row() {
             Text(`${this.currentIndex + 1} / ${this.notes.length}`)
