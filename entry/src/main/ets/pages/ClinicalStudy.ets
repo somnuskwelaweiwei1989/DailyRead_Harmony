@@ -187,106 +187,110 @@ struct ClinicalStudyPage {
           .justifyContent(FlexAlign.Center)
           .backgroundColor('#F5F5F5');
         } else {
-          Column() {
-            Text(this.notes[this.currentIndex].title)
-              .fontSize(22)
-              .fontWeight(FontWeight.Bold)
+          Scroll() {
+            Column() {
+              Text(this.notes[this.currentIndex].title)
+                .fontSize(22)
+                .fontWeight(FontWeight.Bold)
+                .width('100%')
+                .textAlign(TextAlign.Start)
+                .margin({ bottom: 16 });
+
+              Column({ space: 16 }) {
+                if (this.notes[this.currentIndex].pathogenesis.length > 0) {
+                  Column({ space: 8 }) {
+                    Text('病机')
+                      .fontSize(15)
+                      .fontColor('#E53935')
+                      .fontWeight(FontWeight.Bold)
+                      .textAlign(TextAlign.Start);
+                    Text(this.notes[this.currentIndex].pathogenesis)
+                      .fontSize(15)
+                      .fontColor('#333333')
+                      .lineHeight(24)
+                      .textAlign(TextAlign.Start);
+                  }
+                  .width('100%')
+                  .padding(12)
+                  .backgroundColor('#FFF5F5')
+                  .borderRadius(8)
+                  .alignItems(HorizontalAlign.Start);
+                }
+
+                if (this.notes[this.currentIndex].treatment.length > 0) {
+                  Column({ space: 8 }) {
+                    Text('治法')
+                      .fontSize(15)
+                      .fontColor('#16A34A')
+                      .fontWeight(FontWeight.Bold)
+                      .textAlign(TextAlign.Start);
+                    Text(this.notes[this.currentIndex].treatment)
+                      .fontSize(15)
+                      .fontColor('#333333')
+                      .lineHeight(24)
+                      .textAlign(TextAlign.Start);
+                  }
+                  .width('100%')
+                  .padding(12)
+                  .backgroundColor('#F0FFF4')
+                  .borderRadius(8)
+                  .alignItems(HorizontalAlign.Start);
+                }
+
+                if (this.notes[this.currentIndex].prescription.length > 0) {
+                  Column({ space: 8 }) {
+                    Text('处方')
+                      .fontSize(15)
+                      .fontColor('#1D4ED8')
+                      .fontWeight(FontWeight.Bold)
+                      .textAlign(TextAlign.Start);
+                    Text(this.notes[this.currentIndex].prescription)
+                      .fontSize(15)
+                      .fontColor('#333333')
+                      .lineHeight(24)
+                      .textAlign(TextAlign.Start);
+                  }
+                  .width('100%')
+                  .padding(12)
+                  .backgroundColor('#EFF6FF')
+                  .borderRadius(8)
+                  .alignItems(HorizontalAlign.Start);
+                }
+
+                if (this.notes[this.currentIndex].notes.length > 0) {
+                  Column({ space: 8 }) {
+                    Text('备注')
+                      .fontSize(15)
+                      .fontColor('#D97706')
+                      .fontWeight(FontWeight.Bold)
+                      .textAlign(TextAlign.Start);
+                    Text(this.notes[this.currentIndex].notes)
+                      .fontSize(15)
+                      .fontColor('#333333')
+                      .lineHeight(24)
+                      .textAlign(TextAlign.Start);
+                  }
+                  .width('100%')
+                  .padding(12)
+                  .backgroundColor('#FFFBEB')
+                  .borderRadius(8)
+                  .alignItems(HorizontalAlign.Start);
+                }
+              }
               .width('100%')
-              .textAlign(TextAlign.Start)
-              .margin({ bottom: 16 });
-
-            Column({ space: 16 }) {
-              if (this.notes[this.currentIndex].pathogenesis.length > 0) {
-                Column({ space: 8 }) {
-                  Text('病机')
-                    .fontSize(15)
-                    .fontColor('#E53935')
-                    .fontWeight(FontWeight.Bold)
-                    .textAlign(TextAlign.Start);
-                  Text(this.notes[this.currentIndex].pathogenesis)
-                    .fontSize(15)
-                    .fontColor('#333333')
-                    .lineHeight(24)
-                    .textAlign(TextAlign.Start);
-                }
-                .width('100%')
-                .padding(12)
-                .backgroundColor('#FFF5F5')
-                .borderRadius(8)
-                .alignItems(HorizontalAlign.Start);
-              }
-
-              if (this.notes[this.currentIndex].treatment.length > 0) {
-                Column({ space: 8 }) {
-                  Text('治法')
-                    .fontSize(15)
-                    .fontColor('#16A34A')
-                    .fontWeight(FontWeight.Bold)
-                    .textAlign(TextAlign.Start);
-                  Text(this.notes[this.currentIndex].treatment)
-                    .fontSize(15)
-                    .fontColor('#333333')
-                    .lineHeight(24)
-                    .textAlign(TextAlign.Start);
-                }
-                .width('100%')
-                .padding(12)
-                .backgroundColor('#F0FFF4')
-                .borderRadius(8)
-                .alignItems(HorizontalAlign.Start);
-              }
-
-              if (this.notes[this.currentIndex].prescription.length > 0) {
-                Column({ space: 8 }) {
-                  Text('处方')
-                    .fontSize(15)
-                    .fontColor('#1D4ED8')
-                    .fontWeight(FontWeight.Bold)
-                    .textAlign(TextAlign.Start);
-                  Text(this.notes[this.currentIndex].prescription)
-                    .fontSize(15)
-                    .fontColor('#333333')
-                    .lineHeight(24)
-                    .textAlign(TextAlign.Start);
-                }
-                .width('100%')
-                .padding(12)
-                .backgroundColor('#EFF6FF')
-                .borderRadius(8)
-                .alignItems(HorizontalAlign.Start);
-              }
-
-              if (this.notes[this.currentIndex].notes.length > 0) {
-                Column({ space: 8 }) {
-                  Text('备注')
-                    .fontSize(15)
-                    .fontColor('#D97706')
-                    .fontWeight(FontWeight.Bold)
-                    .textAlign(TextAlign.Start);
-                  Text(this.notes[this.currentIndex].notes)
-                    .fontSize(15)
-                    .fontColor('#333333')
-                    .lineHeight(24)
-                    .textAlign(TextAlign.Start);
-                }
-                .width('100%')
-                .padding(12)
-                .backgroundColor('#FFFBEB')
-                .borderRadius(8)
-                .alignItems(HorizontalAlign.Start);
-              }
+              .alignItems(HorizontalAlign.Start)
+              .justifyContent(FlexAlign.Start);
             }
             .width('100%')
-            .layoutWeight(1)
+            .padding(16)
+            .backgroundColor('#FFFFFF')
             .alignItems(HorizontalAlign.Start)
             .justifyContent(FlexAlign.Start);
           }
-          .width('100%')
           .layoutWeight(1)
-          .padding(16)
-          .backgroundColor('#FFFFFF')
-          .alignItems(HorizontalAlign.Start)
-          .justifyContent(FlexAlign.Start);
+          .scrollBar(BarState.Auto)
+          .scrollBarColor('#CCCCCC')
+          .scrollBarWidth(4);
 
           Row() {
             Text(`${this.currentIndex + 1} / ${this.notes.length}`)
