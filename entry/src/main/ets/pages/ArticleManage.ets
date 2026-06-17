@@ -1,7 +1,11 @@
 import router from '@ohos.router';
 import { Article } from '../model/Article';
 import { ArticleRepository } from '../repository/ArticleRepository';
+import { ImageCompressionService, SizedPixelMap } from '../service/ImageCompressionService';
 import promptAction from '@ohos.promptAction';
+import image from '@ohos.multimedia.image';
+import fs from '@ohos.file.fs';
+import { common } from '@kit.AbilityKit';
 
 @Entry
 @Component
@@ -20,6 +24,8 @@ struct ArticleManagePage {
   @State newContent: string = '';
   @State newIsReading: boolean = true;
   @State newIsRequired: boolean = false;
+  @State newImageWebp: string = '';
+  @State previewPixelMap: image.PixelMap | null = null;
 
   // ===== 独立目标率 Dialog =====
   @State showRateDialog: boolean = false;
@@ -75,8 +81,8 @@ struct ArticleManagePage {
       promptAction.showToast({ message: '请输入标题', duration: 2000 });
       return;
     }
-    if (this.newContent.length === 0) {
-      promptAction.showToast({ message: '请输入内容', duration: 2000 });
+    if (this.newContent.length === 0 && this.newImageWebp.length === 0) {
+      promptAction.showToast({ message: '请输入内容或上传图片', duration: 2000 });
       return;
     }
 
@@ -100,6 +106,7 @@ struct ArticleManagePage {
       article.useIndependentCheckRate = false;
       article.independentCheckRate = 30.0;
       article.isLongArticle = false;
+      article.imagewebp = this.newImageWebp;
       article.createTime = new Date().toISOString();
       article.lastModified = article.createTime;
 
@@ -109,6 +116,12 @@ struct ArticleManagePage {
         article.fontSize = this.editingArticle.fontSize;
         article.fontColor = this.editingArticle.fontColor;
         article.isBold = this.editingArticle.isBold;
+        // 编辑时保留原有 imagewebp（或用户刚上传的新图片覆盖原值）
+        if (this.newImageWebp.length === 0 && this.editingArticle.imagewebp && this.editingArticle.imagewebp.length > 0) {
+          article.imagewebp = this.editingArticle.imagewebp;
+        } else {
+          article.imagewebp = this.newImageWebp;
+        }
         // 保留原有完成率
         article.completionRate = this.editingArticle.completionRate;
         await ArticleRepository.getInstance().updateArticle(article);
@@ -210,7 +223,41 @@ struct ArticleManagePage {
     this.newContent = '';
     this.newIsReading = true;
     this.newIsRequired = false;
+    this.newImageWebp = '';
+    this.previewPixelMap = null;
     this.editingArticle = null;
+  }
+
+  /**
+   * 选择图片并压缩为 WebP 格式
+   */
+  async pickImage(): Promise<void> {
+    try {
+      const ctx: common.Context = getContext(this) as common.Context;
+      ImageCompressionService.getInstance().setContext(ctx);
+
+      const base64: string = await ImageCompressionService.getInstance().pickAndCompressToWebP();
+      if (base64 && base64.length > 0) {
+        this.newImageWebp = base64;
+        try {
+          const sized: SizedPixelMap = await ImageCompressionService.base64ToPixelMap(
+            ctx, base64
+          );
+          this.previewPixelMap = sized.pixelMap;
+        } catch (previewErr) {
+          console.error('ArticleManage: 预览图片解码失败: ' + JSON.stringify(previewErr));
+          this.previewPixelMap = null;
+        }
+      }
+    } catch (e) {
+      console.error('选择图片失败: ' + JSON.stringify(e));
+      promptAction.showToast({ message: '图片处理失败，请重试', duration: 2000 });
+    }
+  }
+
+  removeImage(): void {
+    this.newImageWebp = '';
+    this.previewPixelMap = null;
   }
 
   async toggleIsReading(article: Article, newValue: boolean): Promise<void> {
@@ -547,6 +594,69 @@ struct ArticleManagePage {
             .width('100%')
             .margin({ top: 8 });
 
+            // ===== 图片上传区块 =====
+            Column() {
+              if (this.newImageWebp.length > 0 && this.previewPixelMap !== null) {
+                // 显示图片预览
+                Row() {
+                  Image(this.previewPixelMap)
+                    .width(120)
+                    .height(120)
+                    .borderRadius(8)
+                    .margin({ right: 12 });
+                  Column({ space: 6 }) {
+                    Text('✓ 已添加图片')
+                      .fontSize(13)
+                      .fontColor('#1976D2');
+                    Text('已压缩为 WebP (<25KB)')
+                      .fontSize(12)
+                      .fontColor('#999999');
+                  }
+                  .alignItems(HorizontalAlign.Start);
+                  Blank();
+                  Text('×移除')
+                    .fontSize(13)
+                    .fontColor('#D32F2F')
+                    .onClick(() => {
+                      this.removeImage();
+                    });
+                }
+                .width('100%');
+              } else {
+                // 未添加图片，显示上传按钮
+                Row() {
+                  Text('🖼')
+                    .fontSize(20)
+                    .margin({ right: 12 });
+                  Column({ space: 4 }) {
+                    Text('上传图片')
+                      .fontSize(14)
+                      .fontColor('#333333');
+                    Text('将转换为 WebP 格式 (<25KB)')
+                      .fontSize(12)
+                      .fontColor('#999999');
+                  }
+                  .alignItems(HorizontalAlign.Start);
+                  Blank();
+                  Text('选择')
+                    .fontSize(14)
+                    .fontColor('#FFFFFF')
+                    .backgroundColor('#1976D2')
+                    .padding({ left: 16, right: 16, top: 6, bottom: 6 })
+                    .borderRadius(6)
+                    .onClick(() => {
+                      this.pickImage();
+                    });
+                }
+                .width('100%');
+              }
+            }
+            .width('100%')
+            .padding(12)
+            .margin({ top: 12 })
+            .border({ width: 1, color: '#E0E0E0' })
+            .borderRadius(8);
+
             Row() {
               Button('取消')
                 .width('45%')
@@ -720,12 +830,25 @@ struct ArticleManagePage {
                 .padding({ left: 12, right: 12, top: 6, bottom: 6 })
                 .backgroundColor('#FFFFFF')
                 .borderRadius(4)
-                .onClick(() => {
+                .onClick(async () => {
                   this.editingArticle = item;
                   this.newTitle = item.title;
                   this.newContent = item.content;
                   this.newIsReading = item.isReading;
                   this.newIsRequired = item.isRequired;
+                  this.newImageWebp = item.imagewebp && item.imagewebp.length > 0 ? item.imagewebp : '';
+                  this.previewPixelMap = null;
+                  if (this.newImageWebp.length > 0) {
+                    try {
+                      const ctx: common.Context = getContext(this) as common.Context;
+                      const sized: SizedPixelMap = await ImageCompressionService.base64ToPixelMap(
+                        ctx, this.newImageWebp
+                      );
+                      this.previewPixelMap = sized.pixelMap;
+                    } catch (ignore) {
+                      this.previewPixelMap = null;
+                    }
+                  }
                   this.showAddDialog = true;
                 });
               Text('删除')
@@ -785,14 +908,16 @@ struct ArticleManagePage {
         Text('▣')
           .fontSize(16)
           .fontColor('#999999');
-        Text('文章管理')
+        Text('背临床')
           .fontSize(11)
-          .fontColor('#1976D2')
-          .fontWeight(FontWeight.Bold);
+          .fontColor('#666666');
       }
       .layoutWeight(1)
       .justifyContent(FlexAlign.Center)
-      .padding({ top: 8, bottom: 8 });
+      .padding({ top: 8, bottom: 8 })
+      .onClick(() => {
+        router.pushUrl({ url: 'pages/ClinicalStudy' });
+      });
 
       Column({ space: 2 }) {
         Text('◈')

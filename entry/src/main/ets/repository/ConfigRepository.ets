@@ -33,6 +33,7 @@ export class ConfigRepository {
       const colWebdavRemotePath: number = result.getColumnIndex('webdavRemotePath');
       const colSyncArticlesEnabled: number = result.getColumnIndex('syncArticlesEnabled');
       const colSyncConceptsEnabled: number = result.getColumnIndex('syncConceptsEnabled');
+      const colSyncClinicalNotesEnabled: number = result.getColumnIndex('syncClinicalNotesEnabled');
       const colLastResetMonth: number = result.getColumnIndex('lastResetMonth');
       if (result.goToFirstRow()) {
         config.id = result.getLong(colId);
@@ -49,6 +50,7 @@ export class ConfigRepository {
         config.webdavRemotePath = result.getString(colWebdavRemotePath);
         config.syncArticlesEnabled = result.getLong(colSyncArticlesEnabled) === 1;
         config.syncConceptsEnabled = result.getLong(colSyncConceptsEnabled) === 1;
+        config.syncClinicalNotesEnabled = result.getLong(colSyncClinicalNotesEnabled) === 1;
         config.lastResetMonth = result.getString(colLastResetMonth);
       }
       result.close();
@@ -74,6 +76,7 @@ export class ConfigRepository {
       webdavRemotePath: config.webdavRemotePath,
       syncArticlesEnabled: config.syncArticlesEnabled ? 1 : 0,
       syncConceptsEnabled: config.syncConceptsEnabled ? 1 : 0,
+      syncClinicalNotesEnabled: config.syncClinicalNotesEnabled ? 1 : 0,
       lastResetMonth: config.lastResetMonth
     };
     const predicates = new relationalStore.RdbPredicates(TableNames.CONFIG);

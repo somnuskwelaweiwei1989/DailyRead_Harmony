@@ -17,6 +17,7 @@ export class Config {
   yesterdayLongArticleIds: string = '';
   syncArticlesEnabled: boolean = true;
   syncConceptsEnabled: boolean = true;
+  syncClinicalNotesEnabled: boolean = true;
   lastResetMonth: string = '';
 
   constructor() {

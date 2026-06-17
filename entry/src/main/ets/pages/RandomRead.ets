@@ -193,7 +193,7 @@ struct RandomReadPage {
         Text('▣')
           .fontSize(16)
           .fontColor('#999999');
-        Text('文章管理')
+        Text('背临床')
           .fontSize(11)
           .fontColor('#666666');
       }
@@ -201,7 +201,7 @@ struct RandomReadPage {
       .justifyContent(FlexAlign.Center)
       .padding({ top: 8, bottom: 8 })
       .onClick(() => {
-        router.pushUrl({ url: 'pages/ArticleManage' });
+        router.pushUrl({ url: 'pages/ClinicalStudy' });
       });
 
       Column({ space: 2 }) {

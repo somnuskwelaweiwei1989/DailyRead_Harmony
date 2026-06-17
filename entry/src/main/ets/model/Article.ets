@@ -18,6 +18,7 @@ export class Article {
   isLongArticle: boolean = false;
   checkInDays: number = 0;
   completionRate: number = 0;
+  imagewebp: string = '';
   lastModified: string = '';
 
   constructor() {

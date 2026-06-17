@@ -112,7 +112,8 @@ struct SettingsPage {
       const result = await WebDavSyncService.getInstance().syncFromRemote(this.config);
       if (result.success) {
         const msg: string = '下载成功！文章:' + result.downloadedArticles +
-          ', 概念:' + result.downloadedConcepts;
+          ', 概念:' + result.downloadedConcepts +
+          ', 临床笔记:' + result.downloadedClinicalNotes;
         promptAction.showToast({ message: msg, duration: 3000 });
         this.syncMessage = msg;
         await this.loadConfig();
@@ -135,7 +136,8 @@ struct SettingsPage {
       const result = await WebDavSyncService.getInstance().syncToRemote(this.config);
       if (result.success) {
         const msg: string = '上传成功！文章:' + result.uploadedArticles +
-          ', 概念:' + result.uploadedConcepts;
+          ', 概念:' + result.uploadedConcepts +
+          ', 临床笔记:' + result.uploadedClinicalNotes;
         promptAction.showToast({ message: msg, duration: 3000 });
         this.syncMessage = msg;
         await this.loadConfig();
@@ -278,6 +280,34 @@ struct SettingsPage {
                 .fontWeight(FontWeight.Bold)
                 .width('100%')
                 .padding({ left: 16, right: 16, top: 8 })
+
+              // 文章管理入口
+              Column() {
+                Row() {
+                  Column() {
+                    Text('文章管理')
+                      .fontSize(16)
+                      .fontWeight(FontWeight.Medium)
+                    Text('添加、编辑和管理你的文章')
+                      .fontSize(12)
+                      .fontColor('#999999')
+                      .margin({ top: 4 })
+                  }
+                  .alignItems(HorizontalAlign.Start)
+                  .layoutWeight(1)
+                  Text('›')
+                    .fontSize(22)
+                    .fontColor('#999999')
+                }
+                .width('100%')
+                .onClick(() => {
+                  router.pushUrl({ url: 'pages/ArticleManage' });
+                })
+              }
+              .width('100%')
+              .padding(16)
+              .backgroundColor('#FFFFFF')
+              .borderRadius(8)
 
               // 每日阅读时间卡片
               Column() {
@@ -524,6 +554,20 @@ struct SettingsPage {
                   .alignItems(VerticalAlign.Center)
                   .margin({ top: 8 })
 
+                  Row() {
+                    Text('同步临床笔记数据')
+                      .fontSize(14)
+                      .layoutWeight(1)
+                    Toggle({ type: ToggleType.Switch, isOn: this.config.syncClinicalNotesEnabled })
+                      .onChange((val: boolean) => {
+                        this.config.syncClinicalNotesEnabled = val;
+                        this.updateConfig();
+                      })
+                  }
+                  .width('100%')
+                  .alignItems(VerticalAlign.Center)
+                  .margin({ top: 8 })
+
                   Button('配置 WebDAV')
                     .width('100%')
                     .margin({ top: 16 })
@@ -582,7 +626,7 @@ struct SettingsPage {
               .backgroundColor('#FFFFFF')
               .borderRadius(8)
 
-              Text('版本号: 1.0.0')
+              Text('版本号: 1.6.0')
                 .fontSize(12)
                 .fontColor('#999999')
                 .width('100%')
@@ -821,7 +865,7 @@ struct SettingsPage {
         Text('▣')
           .fontSize(16)
           .fontColor('#999999');
-        Text('文章管理')
+        Text('背临床')
           .fontSize(11)
           .fontColor('#666666');
       }
@@ -829,7 +873,7 @@ struct SettingsPage {
       .justifyContent(FlexAlign.Center)
       .padding({ top: 8, bottom: 8 })
       .onClick(() => {
-        router.pushUrl({ url: 'pages/ArticleManage' });
+        router.pushUrl({ url: 'pages/ClinicalStudy' });
       });
 
       Column({ space: 2 }) {

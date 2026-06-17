@@ -9,6 +9,8 @@
     "pages/RandomRead",
     "pages/AcupointStudy",
     "pages/ConceptStudy",
-    "pages/ConceptSettings"
+    "pages/ConceptSettings",
+    "pages/ClinicalStudy",
+    "pages/ClinicalSettings"
   ]
 }

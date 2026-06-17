@@ -1,38 +1,35 @@
 import router from '@ohos.router';
-import { Concept } from '../model/Concept';
-import { ConceptRepository } from '../repository/ConceptRepository';
+import { ClinicalNote } from '../model/ClinicalNote';
+import { ClinicalNoteRepository } from '../repository/ClinicalNoteRepository';
 import promptAction from '@ohos.promptAction';
 
 @Entry
 @Component
-struct ConceptSettingsPage {
-  @State concepts: Concept[] = [];
+struct ClinicalSettingsPage {
+  @State notes: ClinicalNote[] = [];
   @State isLoading: boolean = true;
   @State refreshKey: number = 0;
-  
-  // 搜索功能
+
   @State searchKeyword: string = '';
-  
-  // 修改对话框
+
   @State showEditDialog: boolean = false;
-  @State editingConcept: Concept | null = null;
+  @State editingNote: ClinicalNote | null = null;
   @State editTitle: string = '';
-  @State editCategory: string = '';
-  @State editSubject: string = '';
-  @State editChapter: string = '';
-  @State editContent: string = '';
-  
-  // 删除确认对话框
+  @State editPathogenesis: string = '';
+  @State editTreatment: string = '';
+  @State editPrescription: string = '';
+  @State editNotes: string = '';
+
   @State showDeleteConfirm: boolean = false;
-  @State deletingConcept: Concept | null = null;
-  
-  // 新增概念对话框
+  @State deletingNote: ClinicalNote | null = null;
+
   @State showAddDialog: boolean = false;
   @State addTitle: string = '';
-  @State addCategory: string = '';
-  @State addSubject: string = '';
-  @State addChapter: string = '';
-  @State addContent: string = '';
+  @State addPathogenesis: string = '';
+  @State addTreatment: string = '';
+  @State addPrescription: string = '';
+  @State addNotes: string = '';
+  @State addIsReading: boolean = false;
 
   aboutToAppear(): void {
     this.loadData();
@@ -45,8 +42,8 @@ struct ConceptSettingsPage {
   async loadData(): Promise<void> {
     this.isLoading = true;
     try {
-      const list: Concept[] = await ConceptRepository.getInstance().getAllConcepts();
-      this.concepts = list;
+      const list: ClinicalNote[] = await ClinicalNoteRepository.getInstance().getAllNotes();
+      this.notes = list;
       this.refreshKey = this.refreshKey + 1;
     } catch (e) {
       console.error('加载数据失败: ' + JSON.stringify(e));
@@ -55,45 +52,42 @@ struct ConceptSettingsPage {
     }
   }
 
-  // 获取过滤后的概念列表
-  private getFilteredConcepts(): Concept[] {
+  private getFilteredNotes(): ClinicalNote[] {
     const keyword: string = this.searchKeyword.trim();
     if (keyword.length === 0) {
-      return this.concepts;
+      return this.notes;
     }
     const lowerKeyword: string = keyword.toLowerCase();
-    return this.concepts.filter((c: Concept): boolean => {
-      const titleLower: string = c.title.toLowerCase();
-      const categoryLower: string = c.category.toLowerCase();
-      const subjectLower: string = c.subject.toLowerCase();
-      const titleHit: boolean = titleLower.indexOf(lowerKeyword) !== -1;
-      const categoryHit: boolean = categoryLower.indexOf(lowerKeyword) !== -1;
-      const subjectHit: boolean = subjectLower.indexOf(lowerKeyword) !== -1;
-      return titleHit || categoryHit || subjectHit;
+    return this.notes.filter((n: ClinicalNote): boolean => {
+      const titleHit: boolean = n.title.toLowerCase().indexOf(lowerKeyword) !== -1;
+      const pathoHit: boolean = n.pathogenesis.toLowerCase().indexOf(lowerKeyword) !== -1;
+      const treatHit: boolean = n.treatment.toLowerCase().indexOf(lowerKeyword) !== -1;
+      const prescHit: boolean = n.prescription.toLowerCase().indexOf(lowerKeyword) !== -1;
+      return titleHit || pathoHit || treatHit || prescHit;
     });
   }
 
-  async toggleReading(concept: Concept, newValue: boolean): Promise<void> {
+  async toggleReading(note: ClinicalNote, newValue: boolean): Promise<void> {
     try {
-      await ConceptRepository.getInstance().updateReadingStatus(concept.id, newValue);
+      await ClinicalNoteRepository.getInstance().updateReadingStatus(note.id, newValue);
       await this.loadData();
     } catch (e) {
-      console.error('更新阅读状态失败: ' + JSON.stringify(e));
+      console.error('更新学习状态失败: ' + JSON.stringify(e));
       promptAction.showToast({ message: '更新失败', duration: 2000 });
     }
   }
 
-  showDeleteConfirmDialog(concept: Concept): void {
-    this.deletingConcept = concept;
+  showDeleteConfirmDialog(note: ClinicalNote): void {
+    this.deletingNote = note;
     this.showDeleteConfirm = true;
   }
 
-  async deleteConcept(): Promise<void> {
-    if (!this.deletingConcept) {
+  async deleteNote(): Promise<void> {
+    if (!this.deletingNote) {
       return;
     }
     try {
-      await ConceptRepository.getInstance().deleteConcept(this.deletingConcept.id);
+      await ClinicalNoteRepository.getInstance().deleteNote(this.deletingNote.id);
       await this.loadData();
       promptAction.showToast({ message: '删除成功', duration: 2000 });
     } catch (e) {
@@ -101,36 +95,36 @@ struct ConceptSettingsPage {
       promptAction.showToast({ message: '删除失败', duration: 2000 });
     } finally {
       this.showDeleteConfirm = false;
-      this.deletingConcept = null;
+      this.deletingNote = null;
     }
   }
 
-  openEditDialog(concept: Concept): void {
-    this.editingConcept = concept;
-    this.editTitle = concept.title;
-    this.editCategory = concept.category;
-    this.editSubject = concept.subject;
-    this.editChapter = concept.chapter;
-    this.editContent = concept.content;
+  openEditDialog(note: ClinicalNote): void {
+    this.editingNote = note;
+    this.editTitle = note.title;
+    this.editPathogenesis = note.pathogenesis;
+    this.editTreatment = note.treatment;
+    this.editPrescription = note.prescription;
+    this.editNotes = note.notes;
     this.showEditDialog = true;
   }
 
   async saveEdit(): Promise<void> {
-    if (!this.editingConcept) {
+    if (!this.editingNote) {
       return;
     }
     try {
-      const concept: Concept = new Concept();
-      concept.id = this.editingConcept.id;
-      concept.title = this.editTitle;
-      concept.category = this.editCategory;
-      concept.subject = this.editSubject;
-      concept.chapter = this.editChapter;
-      concept.content = this.editContent;
-      concept.isReading = this.editingConcept.isReading;
-      concept.createTime = this.editingConcept.createTime;
-      concept.lastModified = new Date().toISOString();
-      await ConceptRepository.getInstance().updateConcept(concept);
+      const note: ClinicalNote = new ClinicalNote();
+      note.id = this.editingNote.id;
+      note.title = this.editTitle;
+      note.pathogenesis = this.editPathogenesis;
+      note.treatment = this.editTreatment;
+      note.prescription = this.editPrescription;
+      note.notes = this.editNotes;
+      note.isReading = this.editingNote.isReading;
+      note.createTime = this.editingNote.createTime;
+      note.lastModified = new Date().toISOString();
+      await ClinicalNoteRepository.getInstance().updateNote(note);
       await this.loadData();
       this.showEditDialog = false;
       promptAction.showToast({ message: '修改成功', duration: 2000 });
@@ -142,30 +136,31 @@ struct ConceptSettingsPage {
 
   openAddDialog(): void {
     this.addTitle = '';
-    this.addCategory = '';
-    this.addSubject = '';
-    this.addChapter = '';
-    this.addContent = '';
+    this.addPathogenesis = '';
+    this.addTreatment = '';
+    this.addPrescription = '';
+    this.addNotes = '';
+    this.addIsReading = false;
     this.showAddDialog = true;
   }
 
-  async saveNewConcept(): Promise<void> {
+  async saveNewNote(): Promise<void> {
     if (this.addTitle.trim().length === 0) {
       promptAction.showToast({ message: '请输入标题', duration: 2000 });
       return;
     }
     try {
-      const concept: Concept = new Concept();
-      concept.title = this.addTitle;
-      concept.category = this.addCategory;
-      concept.subject = this.addSubject;
-      concept.chapter = this.addChapter;
-      concept.content = this.addContent;
-      concept.isReading = false;
+      const note: ClinicalNote = new ClinicalNote();
+      note.title = this.addTitle;
+      note.pathogenesis = this.addPathogenesis;
+      note.treatment = this.addTreatment;
+      note.prescription = this.addPrescription;
+      note.notes = this.addNotes;
+      note.isReading = this.addIsReading;
       const now: string = new Date().toISOString();
-      concept.createTime = now;
-      concept.lastModified = now;
-      await ConceptRepository.getInstance().insertConcept(concept);
+      note.createTime = now;
+      note.lastModified = now;
+      await ClinicalNoteRepository.getInstance().insertNote(note);
       await this.loadData();
       this.showAddDialog = false;
       promptAction.showToast({ message: '新增成功', duration: 2000 });
@@ -196,17 +191,15 @@ struct ConceptSettingsPage {
       Column({ space: 2 }) {
         Text('▣')
           .fontSize(16)
-          .fontColor('#999999');
+          .fontColor('#1976D2');
         Text('背临床')
           .fontSize(11)
-          .fontColor('#666666');
+          .fontColor('#1976D2')
+          .fontWeight(FontWeight.Bold);
       }
       .layoutWeight(1)
       .justifyContent(FlexAlign.Center)
-      .padding({ top: 8, bottom: 8 })
-      .onClick(() => {
-        router.pushUrl({ url: 'pages/ClinicalStudy' });
-      });
+      .padding({ top: 8, bottom: 8 });
 
       Column({ space: 2 }) {
         Text('◈')
@@ -274,14 +267,12 @@ struct ConceptSettingsPage {
 
   build(): void {
     Column() {
-      // 顶部标题栏
       Column() {
         Row() {
-          Text('背概念设置')
+          Text('背临床设置')
             .fontSize(24)
             .fontWeight(FontWeight.Bold)
             .layoutWeight(1);
-          // 新增概念按钮
           Text('+ 新增')
             .fontSize(14)
             .fontColor('#FFFFFF')
@@ -302,14 +293,13 @@ struct ConceptSettingsPage {
         }
         .width('100%');
 
-        // 搜索输入框
         Row() {
           Text('🔍')
             .fontSize(16)
             .margin({ right: 8 });
           TextInput({
             text: this.searchKeyword,
-            placeholder: '搜索标题、分类、学科'
+            placeholder: '搜索标题、病机、治法、处方'
           })
             .layoutWeight(1)
             .height(36)
@@ -337,10 +327,9 @@ struct ConceptSettingsPage {
       .padding({ left: 16, right: 16, top: 16, bottom: 12 })
       .backgroundColor('#FFFFFF');
 
-      // 搜索结果提示
       if (!this.isLoading && this.searchKeyword.trim().length > 0) {
         Row() {
-          Text(`搜索"${this.searchKeyword.trim()}"，共找到 ${this.getFilteredConcepts().length} 条`)
+          Text(`搜索"${this.searchKeyword.trim()}"，共找到 ${this.getFilteredNotes().length} 条`)
             .fontSize(13)
             .fontColor('#1976D2');
         }
@@ -362,10 +351,10 @@ struct ConceptSettingsPage {
         .layoutWeight(1)
         .justifyContent(FlexAlign.Center)
         .backgroundColor('#F5F5F5');
-      } else if (this.getFilteredConcepts().length === 0) {
+      } else if (this.getFilteredNotes().length === 0) {
         Column() {
           if (this.searchKeyword.trim().length > 0) {
-            Text('未找到匹配的概念')
+            Text('未找到匹配的笔记')
               .fontSize(16)
               .fontColor('#999999');
             Text('请尝试更换关键字或清除搜索')
@@ -373,7 +362,7 @@ struct ConceptSettingsPage {
               .fontColor('#BBBBBB')
               .margin({ top: 8 });
           } else {
-            Text('暂无概念')
+            Text('暂无笔记')
               .fontSize(16)
               .fontColor('#999999');
           }
@@ -384,7 +373,7 @@ struct ConceptSettingsPage {
         .backgroundColor('#F5F5F5');
       } else {
         List() {
-          ForEach(this.getFilteredConcepts(), (item: Concept) => {
+          ForEach(this.getFilteredNotes(), (item: ClinicalNote) => {
             ListItem() {
               Column({ space: 12 }) {
                 Row() {
@@ -396,25 +385,6 @@ struct ConceptSettingsPage {
                       .maxLines(1)
                       .textOverflow({ overflow: TextOverflow.Ellipsis })
                       .width('100%');
-
-                    Row({ space: 12 }) {
-                      if (item.category.length > 0) {
-                        Text('分类:' + item.category)
-                          .fontSize(12)
-                          .fontColor('#666666');
-                      }
-                      if (item.subject.length > 0) {
-                        Text('学科:' + item.subject)
-                          .fontSize(12)
-                          .fontColor('#666666');
-                      }
-                      if (item.chapter.length > 0) {
-                        Text('章节:' + item.chapter)
-                          .fontSize(12)
-                          .fontColor('#666666');
-                      }
-                    }
-                    .width('100%');
                   }
                   .layoutWeight(1);
 
@@ -458,7 +428,7 @@ struct ConceptSettingsPage {
             .backgroundColor('#FFFFFF')
             .borderRadius(16)
             .margin({ left: 24, right: 24, top: 12 });
-          }, (item: Concept) => item.id.toString() + '_' + this.refreshKey.toString());
+          }, (item: ClinicalNote) => item.id.toString() + '_' + this.refreshKey.toString());
         }
         .width('100%')
         .layoutWeight(1)
@@ -467,11 +437,10 @@ struct ConceptSettingsPage {
 
       this.BottomTabBar();
 
-      // 修改对话框
       if (this.showEditDialog) {
         Column() {
           Column() {
-            Text('修改概念')
+            Text('修改临床笔记')
               .fontSize(20)
               .fontWeight(FontWeight.Bold)
               .width('100%')
@@ -492,57 +461,60 @@ struct ConceptSettingsPage {
             .margin({ top: 16 });
 
             Column() {
-              Text('分类')
+              Text('病机')
                 .fontSize(14)
                 .fontColor('#333333')
                 .width('100%');
-              TextInput({ text: this.editCategory, placeholder: '请输入分类' })
+              TextInput({ text: this.editPathogenesis, placeholder: '请输入病机' })
                 .width('100%')
+                .height(70)
                 .onChange((value: string) => {
-                  this.editCategory = value;
+                  this.editPathogenesis = value;
                 });
             }
             .width('100%')
             .margin({ top: 12 });
 
             Column() {
-              Text('学科')
+              Text('治法')
                 .fontSize(14)
                 .fontColor('#333333')
                 .width('100%');
-              TextInput({ text: this.editSubject, placeholder: '请输入学科' })
+              TextInput({ text: this.editTreatment, placeholder: '请输入治法' })
                 .width('100%')
+                .height(70)
                 .onChange((value: string) => {
-                  this.editSubject = value;
+                  this.editTreatment = value;
                 });
             }
             .width('100%')
             .margin({ top: 12 });
 
             Column() {
-              Text('章节')
+              Text('处方')
                 .fontSize(14)
                 .fontColor('#333333')
                 .width('100%');
-              TextInput({ text: this.editChapter, placeholder: '请输入章节' })
+              TextInput({ text: this.editPrescription, placeholder: '请输入处方' })
                 .width('100%')
+                .height(80)
                 .onChange((value: string) => {
-                  this.editChapter = value;
+                  this.editPrescription = value;
                 });
             }
             .width('100%')
             .margin({ top: 12 });
 
             Column() {
-              Text('内容')
+              Text('备注')
                 .fontSize(14)
                 .fontColor('#333333')
                 .width('100%');
-              TextInput({ text: this.editContent, placeholder: '请输入内容' })
+              TextInput({ text: this.editNotes, placeholder: '请输入备注' })
                 .width('100%')
-                .height(100)
+                .height(70)
                 .onChange((value: string) => {
-                  this.editContent = value;
+                  this.editNotes = value;
                 });
             }
             .width('100%')
@@ -581,7 +553,6 @@ struct ConceptSettingsPage {
         });
       }
 
-      // 删除确认对话框
       if (this.showDeleteConfirm) {
         Column() {
           Column() {
@@ -592,7 +563,7 @@ struct ConceptSettingsPage {
               .textAlign(TextAlign.Center)
               .margin({ bottom: 16 });
 
-            Text(`确定要删除概念「${this.deletingConcept?.title || ''}」吗？`)
+            Text(`确定要删除笔记「${this.deletingNote?.title || ''}」吗？`)
               .fontSize(16)
               .fontColor('#666666')
               .width('100%')
@@ -605,14 +576,14 @@ struct ConceptSettingsPage {
                 .fontColor('#333333')
                 .onClick(() => {
                   this.showDeleteConfirm = false;
-                  this.deletingConcept = null;
+                  this.deletingNote = null;
                 });
               Button('确认删除')
                 .width('45%')
                 .backgroundColor('#D32F2F')
                 .fontColor('#FFFFFF')
                 .onClick(() => {
-                  this.deleteConcept();
+                  this.deleteNote();
                 });
             }
             .width('100%')
@@ -631,15 +602,14 @@ struct ConceptSettingsPage {
         .justifyContent(FlexAlign.Center)
         .onClick(() => {
           this.showDeleteConfirm = false;
-          this.deletingConcept = null;
+          this.deletingNote = null;
         });
       }
 
-      // 新增概念对话框
       if (this.showAddDialog) {
         Column() {
           Column() {
-            Text('新增概念')
+            Text('新增临床笔记')
               .fontSize(20)
               .fontWeight(FontWeight.Bold)
               .width('100%')
@@ -657,61 +627,75 @@ struct ConceptSettingsPage {
                   this.addTitle = value;
                 });
             }
-            .width('100%')
-            .margin({ top: 8 });
+            .width('100%');
 
             Column() {
-              Text('分类')
+              Text('病机')
                 .fontSize(14)
                 .fontColor('#333333')
                 .width('100%');
-              TextInput({ text: this.addCategory, placeholder: '请输入分类' })
+              TextInput({ text: this.addPathogenesis, placeholder: '请输入病机' })
                 .width('100%')
+                .height(70)
                 .onChange((value: string) => {
-                  this.addCategory = value;
+                  this.addPathogenesis = value;
                 });
             }
             .width('100%')
             .margin({ top: 12 });
 
             Column() {
-              Text('学科')
+              Text('治法')
                 .fontSize(14)
                 .fontColor('#333333')
                 .width('100%');
-              TextInput({ text: this.addSubject, placeholder: '请输入学科' })
+              TextInput({ text: this.addTreatment, placeholder: '请输入治法' })
                 .width('100%')
+                .height(70)
                 .onChange((value: string) => {
-                  this.addSubject = value;
+                  this.addTreatment = value;
                 });
             }
             .width('100%')
             .margin({ top: 12 });
 
             Column() {
-              Text('章节')
+              Text('处方')
                 .fontSize(14)
                 .fontColor('#333333')
                 .width('100%');
-              TextInput({ text: this.addChapter, placeholder: '请输入章节' })
+              TextInput({ text: this.addPrescription, placeholder: '请输入处方' })
                 .width('100%')
+                .height(80)
                 .onChange((value: string) => {
-                  this.addChapter = value;
+                  this.addPrescription = value;
                 });
             }
             .width('100%')
             .margin({ top: 12 });
 
             Column() {
-              Text('内容')
+              Text('备注内容')
                 .fontSize(14)
                 .fontColor('#333333')
                 .width('100%');
-              TextInput({ text: this.addContent, placeholder: '请输入内容' })
+              TextInput({ text: this.addNotes, placeholder: '请输入备注' })
                 .width('100%')
-                .height(100)
+                .height(70)
                 .onChange((value: string) => {
-                  this.addContent = value;
+                  this.addNotes = value;
+                });
+            }
+            .width('100%')
+            .margin({ top: 12 });
+
+            Row() {
+              Text('学习状态')
+                .fontSize(14)
+                .fontColor('#333333');
+              Toggle({ type: ToggleType.Switch, isOn: this.addIsReading })
+                .onChange((isCheck: boolean) => {
+                  this.addIsReading = isCheck;
                 });
             }
             .width('100%')
@@ -728,7 +712,7 @@ struct ConceptSettingsPage {
               Button('保存')
                 .width('45%')
                 .onClick(() => {
-                  this.saveNewConcept();
+                  this.saveNewNote();
                 });
             }
             .width('100%')

@@ -1,48 +1,44 @@
 import router from '@ohos.router';
-import { Concept } from '../model/Concept';
-import { ConceptRepository } from '../repository/ConceptRepository';
+import { ClinicalNote } from '../model/ClinicalNote';
+import { ClinicalNoteRepository } from '../repository/ClinicalNoteRepository';
 
 @Entry
 @Component
-struct ConceptStudyPage {
-  @State concepts: Concept[] = [];
+struct ClinicalStudyPage {
+  @State notes: ClinicalNote[] = [];
   @State currentIndex: number = 0;
   @State isLoading: boolean = true;
 
   aboutToAppear(): void {
-    this.loadConcepts();
+    this.loadNotes();
   }
 
   aboutToShow(): void {
-    // 每次页面显示时刷新数据（可能从设置页返回后状态已改变）
-    this.loadConcepts();
+    this.loadNotes();
   }
 
-  async loadConcepts(): Promise<void> {
+  async loadNotes(): Promise<void> {
     this.isLoading = true;
     try {
-      // 仅加载阅读状态开启的概念
-      this.concepts = await ConceptRepository.getInstance().getReadingConcepts();
-      // 初始随机选一个
-      if (this.concepts.length > 0) {
-        this.currentIndex = Math.floor(Math.random() * this.concepts.length);
+      this.notes = await ClinicalNoteRepository.getInstance().getReadingNotes();
+      if (this.notes.length > 0) {
+        this.currentIndex = Math.floor(Math.random() * this.notes.length);
       }
     } catch (e) {
-      console.error('加载概念失败: ' + JSON.stringify(e));
-      this.concepts = [];
+      console.error('加载临床笔记失败: ' + JSON.stringify(e));
+      this.notes = [];
     } finally {
       this.isLoading = false;
     }
   }
 
-  // 下一个：不与当前重复的随机选择
-  nextConcept(): void {
-    if (this.concepts.length <= 1) {
+  nextNote(): void {
+    if (this.notes.length <= 1) {
       return;
     }
     let newIndex: number;
     do {
-      newIndex = Math.floor(Math.random() * this.concepts.length);
+      newIndex = Math.floor(Math.random() * this.notes.length);
     } while (newIndex === this.currentIndex);
     this.currentIndex = newIndex;
   }
@@ -68,17 +64,15 @@ struct ConceptStudyPage {
       Column({ space: 2 }) {
         Text('▣')
           .fontSize(16)
-          .fontColor('#999999');
+          .fontColor('#1976D2');
         Text('背临床')
           .fontSize(11)
-          .fontColor('#666666');
+          .fontColor('#1976D2')
+          .fontWeight(FontWeight.Bold);
       }
       .layoutWeight(1)
       .justifyContent(FlexAlign.Center)
-      .padding({ top: 8, bottom: 8 })
-      .onClick(() => {
-        router.pushUrl({ url: 'pages/ClinicalStudy' });
-      });
+      .padding({ top: 8, bottom: 8 });
 
       Column({ space: 2 }) {
         Text('◈')
@@ -116,12 +110,14 @@ struct ConceptStudyPage {
           .fontColor('#999999');
         Text('背概念')
           .fontSize(11)
-          .fontColor('#1976D2')
-          .fontWeight(FontWeight.Bold);
+          .fontColor('#666666');
       }
       .layoutWeight(1)
       .justifyContent(FlexAlign.Center)
-      .padding({ top: 8, bottom: 8 });
+      .padding({ top: 8, bottom: 8 })
+      .onClick(() => {
+        router.pushUrl({ url: 'pages/ConceptStudy' });
+      });
 
       Column({ space: 2 }) {
         Text('⚙')
@@ -144,9 +140,8 @@ struct ConceptStudyPage {
 
   build(): void {
     Column() {
-      // 顶部标题栏
       Row() {
-        Text('背概念')
+        Text('背临床')
           .fontSize(24)
           .fontWeight(FontWeight.Bold)
           .layoutWeight(1);
@@ -155,7 +150,7 @@ struct ConceptStudyPage {
           .fontColor('#1976D2')
           .padding({ left: 12, right: 12, top: 6, bottom: 6 })
           .onClick(() => {
-            router.pushUrl({ url: 'pages/ConceptSettings' });
+            router.pushUrl({ url: 'pages/ClinicalSettings' });
           });
       }
       .width('100%')
@@ -177,12 +172,12 @@ struct ConceptStudyPage {
         .justifyContent(FlexAlign.Center)
         .backgroundColor('#F5F5F5');
       } else {
-        if (this.concepts.length === 0) {
+        if (this.notes.length === 0) {
           Column() {
-            Text('暂无需要背诵的概念')
+            Text('暂无需要背诵的临床笔记')
               .fontSize(16)
               .fontColor('#999999');
-            Text('请在设置中添加并开启阅读状态')
+            Text('请在设置中添加并开启学习状态')
               .fontSize(13)
               .fontColor('#BBBBBB')
               .margin({ top: 8 });
@@ -192,56 +187,99 @@ struct ConceptStudyPage {
           .justifyContent(FlexAlign.Center)
           .backgroundColor('#F5F5F5');
         } else {
-          // 内容区域：顶部对齐
           Column() {
-            Text(this.concepts[this.currentIndex].title)
+            Text(this.notes[this.currentIndex].title)
               .fontSize(22)
               .fontWeight(FontWeight.Bold)
               .width('100%')
               .textAlign(TextAlign.Start)
               .margin({ bottom: 16 });
 
-            if (this.concepts[this.currentIndex].category.length > 0 ||
-              this.concepts[this.currentIndex].subject.length > 0 ||
-              this.concepts[this.currentIndex].chapter.length > 0) {
-              Row({ space: 8 }) {
-                if (this.concepts[this.currentIndex].category.length > 0) {
-                  Text('分类:' + this.concepts[this.currentIndex].category)
-                    .fontSize(12)
-                    .fontColor('#666666');
+            Column({ space: 16 }) {
+              if (this.notes[this.currentIndex].pathogenesis.length > 0) {
+                Column({ space: 8 }) {
+                  Text('病机')
+                    .fontSize(15)
+                    .fontColor('#E53935')
+                    .fontWeight(FontWeight.Bold)
+                    .textAlign(TextAlign.Start);
+                  Text(this.notes[this.currentIndex].pathogenesis)
+                    .fontSize(15)
+                    .fontColor('#333333')
+                    .lineHeight(24)
+                    .textAlign(TextAlign.Start);
                 }
-                if (this.concepts[this.currentIndex].subject.length > 0) {
-                  Text('学科:' + this.concepts[this.currentIndex].subject)
-                    .fontSize(12)
-                    .fontColor('#666666');
-                }
-                if (this.concepts[this.currentIndex].chapter.length > 0) {
-                  Text('章节:' + this.concepts[this.currentIndex].chapter)
-                    .fontSize(12)
-                    .fontColor('#666666');
-                }
+                .width('100%')
+                .padding(12)
+                .backgroundColor('#FFF5F5')
+                .borderRadius(8)
+                .alignItems(HorizontalAlign.Start);
               }
-              .width('100%')
-              .margin({ bottom: 16 });
-            }
 
-            Scroll() {
-              Column({ space: 0 }) {
-                Text(this.concepts[this.currentIndex].content)
-                  .fontSize(16)
-                  .fontColor('#333333')
-                  .lineHeight(26)
-                  .width('100%')
-                  .textAlign(TextAlign.Start);
+              if (this.notes[this.currentIndex].treatment.length > 0) {
+                Column({ space: 8 }) {
+                  Text('治法')
+                    .fontSize(15)
+                    .fontColor('#16A34A')
+                    .fontWeight(FontWeight.Bold)
+                    .textAlign(TextAlign.Start);
+                  Text(this.notes[this.currentIndex].treatment)
+                    .fontSize(15)
+                    .fontColor('#333333')
+                    .lineHeight(24)
+                    .textAlign(TextAlign.Start);
+                }
+                .width('100%')
+                .padding(12)
+                .backgroundColor('#F0FFF4')
+                .borderRadius(8)
+                .alignItems(HorizontalAlign.Start);
               }
-              .width('100%')
-              .alignItems(HorizontalAlign.Start)
-              .justifyContent(FlexAlign.Start);
+
+              if (this.notes[this.currentIndex].prescription.length > 0) {
+                Column({ space: 8 }) {
+                  Text('处方')
+                    .fontSize(15)
+                    .fontColor('#1D4ED8')
+                    .fontWeight(FontWeight.Bold)
+                    .textAlign(TextAlign.Start);
+                  Text(this.notes[this.currentIndex].prescription)
+                    .fontSize(15)
+                    .fontColor('#333333')
+                    .lineHeight(24)
+                    .textAlign(TextAlign.Start);
+                }
+                .width('100%')
+                .padding(12)
+                .backgroundColor('#EFF6FF')
+                .borderRadius(8)
+                .alignItems(HorizontalAlign.Start);
+              }
+
+              if (this.notes[this.currentIndex].notes.length > 0) {
+                Column({ space: 8 }) {
+                  Text('备注')
+                    .fontSize(15)
+                    .fontColor('#D97706')
+                    .fontWeight(FontWeight.Bold)
+                    .textAlign(TextAlign.Start);
+                  Text(this.notes[this.currentIndex].notes)
+                    .fontSize(15)
+                    .fontColor('#333333')
+                    .lineHeight(24)
+                    .textAlign(TextAlign.Start);
+                }
+                .width('100%')
+                .padding(12)
+                .backgroundColor('#FFFBEB')
+                .borderRadius(8)
+                .alignItems(HorizontalAlign.Start);
+              }
             }
-            .scrollBar(BarState.Auto)
-            .layoutWeight(1)
             .width('100%')
-            .align(Alignment.TopStart);
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Start)
+            .justifyContent(FlexAlign.Start);
           }
           .width('100%')
           .layoutWeight(1)
@@ -250,9 +288,8 @@ struct ConceptStudyPage {
           .alignItems(HorizontalAlign.Start)
           .justifyContent(FlexAlign.Start);
 
-          // 底部操作栏
           Row() {
-            Text(`${this.currentIndex + 1} / ${this.concepts.length}`)
+            Text(`${this.currentIndex + 1} / ${this.notes.length}`)
               .fontSize(12)
               .fontColor('#999999')
               .padding({ left: 12, right: 12 });
@@ -263,7 +300,7 @@ struct ConceptStudyPage {
               .backgroundColor('#1976D2')
               .width('60%')
               .onClick(() => {
-                this.nextConcept();
+                this.nextNote();
               });
           }
           .width('100%')

@@ -2,11 +2,12 @@ import relationalStore from '@ohos.data.relationalStore';
 import { common } from '@kit.AbilityKit';
 
 const DB_NAME = 'daily_read.db';
-const DB_VERSION = 15;
+const DB_VERSION = 18;
 
 const TABLE_ARTICLES = 'contents';
 const TABLE_ACUPOINTS = 'acupoints';
 const TABLE_CONCEPTS = 'concepts';
+const TABLE_CLINICAL_NOTES = 'clinical_notes';
 const TABLE_CHECKINS = 'content_checkins';
 const TABLE_CONFIG = 'config';
 const TABLE_DAILY_TASKS = 'daily_tasks';
@@ -32,6 +33,7 @@ const SQL_CREATE_ARTICLES = `
     isLongArticle INTEGER DEFAULT 0,
     checkInDays INTEGER DEFAULT 0,
     completionRate REAL DEFAULT 0,
+    imagewebp TEXT DEFAULT '',
     lastModified TEXT DEFAULT ''
   )
 `;
@@ -74,6 +76,20 @@ const SQL_CREATE_CONCEPTS = `
   )
 `;
 
+const SQL_CREATE_CLINICAL_NOTES = `
+  CREATE TABLE IF NOT EXISTS ${TABLE_CLINICAL_NOTES} (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT DEFAULT '',
+    pathogenesis TEXT DEFAULT '',
+    treatment TEXT DEFAULT '',
+    prescription TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    isReading INTEGER DEFAULT 0,
+    createTime TEXT DEFAULT '',
+    lastModified TEXT DEFAULT ''
+  )
+`;
+
 const SQL_CREATE_CHECKINS = `
   CREATE TABLE IF NOT EXISTS ${TABLE_CHECKINS} (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,6 +117,7 @@ const SQL_CREATE_CONFIG = `
     webdavRemotePath TEXT DEFAULT '/DailyRead',
     syncArticlesEnabled INTEGER DEFAULT 1,
     syncConceptsEnabled INTEGER DEFAULT 1,
+    syncClinicalNotesEnabled INTEGER DEFAULT 1,
     lastResetMonth TEXT DEFAULT ''
   )
 `;
@@ -136,6 +153,7 @@ export class TableNames {
   static readonly ARTICLES: string = TABLE_ARTICLES;
   static readonly ACUPOINTS: string = TABLE_ACUPOINTS;
   static readonly CONCEPTS: string = TABLE_CONCEPTS;
+  static readonly CLINICAL_NOTES: string = TABLE_CLINICAL_NOTES;
   static readonly CHECKINS: string = TABLE_CHECKINS;
   static readonly CONFIG: string = TABLE_CONFIG;
   static readonly DAILY_TASKS: string = TABLE_DAILY_TASKS;
@@ -173,6 +191,7 @@ export class AppDatabase {
     await this.db.executeSql(SQL_CREATE_ARTICLES);
     await this.db.executeSql(SQL_CREATE_ACUPOINTS);
     await this.db.executeSql(SQL_CREATE_CONCEPTS);
+    await this.db.executeSql(SQL_CREATE_CLINICAL_NOTES);
     await this.db.executeSql(SQL_CREATE_CHECKINS);
     await this.db.executeSql(SQL_CREATE_CONFIG);
     await this.db.executeSql(SQL_CREATE_DAILY_TASKS);
@@ -218,6 +237,13 @@ export class AppDatabase {
     // 数据库升级：v15 -> v16，给 concepts 表加 isReading 列
     try {
       await this.db.executeSql(`ALTER TABLE ${TABLE_CONCEPTS} ADD COLUMN isReading INTEGER DEFAULT 0`);
+    } catch (e) {
+      // 列已存在时会报错，忽略即可
+    }
+
+    // 数据库升级：v16 -> v17，给 articles 表加 imagewebp 列（文章图片，WebP base64）
+    try {
+      await this.db.executeSql(`ALTER TABLE ${TABLE_ARTICLES} ADD COLUMN imagewebp TEXT DEFAULT ''`);
     } catch (e) {
       // 列已存在时会报错，忽略即可
     }
@@ -285,6 +311,13 @@ export class AppDatabase {
       }
     }
 
+    // 数据库升级：v17 -> v18，给 config 表加 syncClinicalNotesEnabled 列
+    try {
+      await this.db.executeSql(`ALTER TABLE ${TABLE_CONFIG} ADD COLUMN syncClinicalNotesEnabled INTEGER DEFAULT 1`);
+    } catch (e) {
+      // 列已存在时会报错，忽略即可
+    }
+
     await this.ensureDefaultConfig();
   }
 
@@ -310,6 +343,7 @@ export class AppDatabase {
         webdavRemotePath: '/DailyRead',
         syncArticlesEnabled: 1,
         syncConceptsEnabled: 1,
+        syncClinicalNotesEnabled: 1,
         lastResetMonth: ''
       };
       await this.db.insert(TABLE_CONFIG, valueBucket);

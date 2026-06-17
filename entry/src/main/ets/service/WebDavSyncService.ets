@@ -2,8 +2,10 @@ import { WebDavClient, WebDavResult } from './WebDavClient';
 import { Config } from '../model/Config';
 import { ArticleRepository } from '../repository/ArticleRepository';
 import { ConceptRepository } from '../repository/ConceptRepository';
+import { ClinicalNoteRepository } from '../repository/ClinicalNoteRepository';
 import { Article } from '../model/Article';
 import { Concept } from '../model/Concept';
+import { ClinicalNote } from '../model/ClinicalNote';
 import { AppDatabase } from '../database/AppDatabase';
 import { common } from '@kit.AbilityKit';
 
@@ -14,9 +16,11 @@ export class SyncResult {
   uploadedArticles: number = 0;
   downloadedConcepts: number = 0;
   uploadedConcepts: number = 0;
+  downloadedClinicalNotes: number = 0;
+  uploadedClinicalNotes: number = 0;
 }
 
-/** 与 Windows 端 make_backup_json 完全对齐的 Article 字段 */
+/** 与 Article 字段完全对齐 */
 export class SyncArticleData {
   id: number = 0;
   title: string = '';
@@ -35,11 +39,12 @@ export class SyncArticleData {
   isLongArticle: boolean = false;
   checkInDays: number = 0;
   completionRate: number = 0;
+  imagewebp: string = '';
   createTime: string = '';
   lastModified: string = '';
 }
 
-/** 与 Windows 端 make_backup_json 完全对齐的 Concept 字段 */
+/** 与 Concept 字段完全对齐 */
 export class SyncConceptData {
   id: number = 0;
   title: string = '';
@@ -52,13 +57,26 @@ export class SyncConceptData {
   lastModified: string = '';
 }
 
-/** 与 Windows 端 {version,exportTime,dataType,articles,concepts} 对齐 */
+/** 与 ClinicalNote 字段完全对齐 */
+export class SyncClinicalNoteData {
+  id: number = 0;
+  title: string = '';
+  pathogenesis: string = '';
+  treatment: string = '';
+  prescription: string = '';
+  notes: string = '';
+  isReading: boolean = false;
+  createTime: string = '';
+  lastModified: string = '';
+}
+
 export class SyncPayload {
-  version: number = 1;
+  version: number = 2;
   exportTime: string = '';
-  dataType: string = 'daily_read_backup_windows';
+  dataType: string = 'daily_read_backup';
   articles: SyncArticleData[] = [];
   concepts: SyncConceptData[] = [];
+  clinicalNotes: SyncClinicalNoteData[] = [];
 }
 
 /** 远程文件路径：相对于 webdav 根目录 */
@@ -225,6 +243,7 @@ export class WebDavSyncService {
             a.isLongArticle = it['isLongArticle'] !== undefined ? Boolean(it['isLongArticle']) : false;
             a.checkInDays = Number(it['checkInDays']) || 0;
             a.completionRate = Number(it['completionRate']) || 0;
+            a.imagewebp = String(it['imagewebp'] || '');
             a.createTime = String(it['createTime'] || '');
             a.lastModified = String(it['lastModified'] || '');
             payload.articles.push(a);
@@ -258,11 +277,38 @@ export class WebDavSyncService {
         } else {
           console.warn('WebDAV syncFromRemote: concepts 字段不存在或不是数组');
         }
-        
-        payload.version = Number(rawRec['version']) || 1;
+
+        // 解析临床笔记
+        let notesRaw = rawRec['clinicalNotes'];
+        if (!notesRaw) notesRaw = rawRec['clinical_notes'];
+        if (!notesRaw) notesRaw = rawRec['notes'];
+        console.info('WebDAV syncFromRemote: clinicalNotes 字段存在=' + (notesRaw !== undefined) + ', 类型=' + typeof notesRaw + ', 是否数组=' + Array.isArray(notesRaw));
+
+        if (notesRaw && Array.isArray(notesRaw)) {
+          const arr: Object[] = notesRaw as Object[];
+          console.info('WebDAV syncFromRemote: clinicalNotes 数组长度=' + arr.length);
+          for (let i: number = 0; i < arr.length; i++) {
+            const it: Record<string, Object> = arr[i] as Record<string, Object>;
+            const n: SyncClinicalNoteData = new SyncClinicalNoteData();
+            n.id = Number(it['id']) || 0;
+            n.title = String(it['title'] || '');
+            n.pathogenesis = String(it['pathogenesis'] || '');
+            n.treatment = String(it['treatment'] || '');
+            n.prescription = String(it['prescription'] || '');
+            n.notes = String(it['notes'] || '');
+            n.isReading = it['isReading'] !== undefined ? Boolean(it['isReading']) : false;
+            n.createTime = String(it['createTime'] || '');
+            n.lastModified = String(it['lastModified'] || '');
+            payload.clinicalNotes.push(n);
+          }
+        } else {
+          console.warn('WebDAV syncFromRemote: clinicalNotes 字段不存在或不是数组');
+        }
+
+        payload.version = Number(rawRec['version']) || 2;
         payload.exportTime = String(rawRec['exportTime'] || '');
-        payload.dataType = String(rawRec['dataType'] || 'daily_read_backup_windows');
-        console.info('WebDAV syncFromRemote: 解析完成 articles=' + payload.articles.length + ' concepts=' + payload.concepts.length);
+        payload.dataType = String(rawRec['dataType'] || 'daily_read_backup');
+        console.info('WebDAV syncFromRemote: 解析完成 articles=' + payload.articles.length + ' concepts=' + payload.concepts.length + ' clinicalNotes=' + payload.clinicalNotes.length);
       } catch (parseError) {
         result.success = false;
         result.errorMessage = '解析远程 JSON 失败: ' + JSON.stringify(parseError);
@@ -272,7 +318,8 @@ export class WebDavSyncService {
 
       result.downloadedArticles = await this.mergeArticles(payload.articles);
       result.downloadedConcepts = await this.mergeConcepts(payload.concepts);
-      console.info('WebDAV syncFromRemote: mergedArticles=' + result.downloadedArticles + ' mergedConcepts=' + result.downloadedConcepts);
+      result.downloadedClinicalNotes = await this.mergeClinicalNotes(payload.clinicalNotes);
+      console.info('WebDAV syncFromRemote: mergedArticles=' + result.downloadedArticles + ' mergedConcepts=' + result.downloadedConcepts + ' mergedClinicalNotes=' + result.downloadedClinicalNotes);
       config.lastSyncTime = new Date().toISOString();
       result.success = true;
     } catch (e) {
@@ -290,50 +337,75 @@ export class WebDavSyncService {
     const result: SyncResult = new SyncResult();
     try {
       const baseUrl: string = this.getServerUrl(config);
-      const articles: Article[] = await ArticleRepository.getInstance().getAllArticles();
-      const concepts: Concept[] = await ConceptRepository.getInstance().getAllConcepts();
-
       const payload: SyncPayload = new SyncPayload();
       payload.exportTime = new Date().toISOString();
 
-      for (let i: number = 0; i < articles.length; i++) {
-        const a: Article = articles[i];
-        const data: SyncArticleData = new SyncArticleData();
-        data.id = a.id;
-        data.title = a.title;
-        data.content = a.content;
-        data.contentHtml = a.contentHtml || '';
-        data.chineseChars = a.chineseChars;
-        data.fontFamily = a.fontFamily || 'default';
-        data.fontSize = a.fontSize || 16;
-        data.fontColor = a.fontColor || '#000000';
-        data.isBold = a.isBold || false;
-        data.isReading = a.isReading;
-        data.isRequired = a.isRequired || false;
-        data.requiredDays = a.requiredDays || '';
-        data.useIndependentCheckRate = a.useIndependentCheckRate || false;
-        data.independentCheckRate = a.independentCheckRate || 0;
-        data.isLongArticle = a.isLongArticle || false;
-        data.checkInDays = a.checkInDays || 0;
-        data.completionRate = a.completionRate || 0;
-        data.createTime = a.createTime || '';
-        data.lastModified = a.lastModified || payload.exportTime;
-        payload.articles.push(data);
+      if (config.syncArticlesEnabled) {
+        const articles: Article[] = await ArticleRepository.getInstance().getAllArticles();
+        for (let i: number = 0; i < articles.length; i++) {
+          const a: Article = articles[i];
+          const data: SyncArticleData = new SyncArticleData();
+          data.id = a.id;
+          data.title = a.title;
+          data.content = a.content;
+          data.contentHtml = a.contentHtml || '';
+          data.chineseChars = a.chineseChars;
+          data.fontFamily = a.fontFamily || 'default';
+          data.fontSize = a.fontSize || 16;
+          data.fontColor = a.fontColor || '#000000';
+          data.isBold = a.isBold || false;
+          data.isReading = a.isReading;
+          data.isRequired = a.isRequired || false;
+          data.requiredDays = a.requiredDays || '';
+          data.useIndependentCheckRate = a.useIndependentCheckRate || false;
+          data.independentCheckRate = a.independentCheckRate || 0;
+          data.isLongArticle = a.isLongArticle || false;
+          data.checkInDays = a.checkInDays || 0;
+          data.completionRate = a.completionRate || 0;
+          data.imagewebp = a.imagewebp || '';
+          data.createTime = a.createTime || '';
+          data.lastModified = a.lastModified || payload.exportTime;
+          payload.articles.push(data);
+        }
+        result.uploadedArticles = articles.length;
       }
 
-      for (let i: number = 0; i < concepts.length; i++) {
-        const c: Concept = concepts[i];
-        const data: SyncConceptData = new SyncConceptData();
-        data.id = c.id;
-        data.title = c.title;
-        data.category = c.category || '';
-        data.subject = c.subject || '';
-        data.chapter = c.chapter || '';
-        data.content = c.content;
-        data.isReading = c.isReading;
-        data.createTime = c.createTime || '';
-        data.lastModified = c.lastModified || payload.exportTime;
-        payload.concepts.push(data);
+      if (config.syncConceptsEnabled) {
+        const concepts: Concept[] = await ConceptRepository.getInstance().getAllConcepts();
+        for (let i: number = 0; i < concepts.length; i++) {
+          const c: Concept = concepts[i];
+          const data: SyncConceptData = new SyncConceptData();
+          data.id = c.id;
+          data.title = c.title;
+          data.category = c.category || '';
+          data.subject = c.subject || '';
+          data.chapter = c.chapter || '';
+          data.content = c.content;
+          data.isReading = c.isReading;
+          data.createTime = c.createTime || '';
+          data.lastModified = c.lastModified || payload.exportTime;
+          payload.concepts.push(data);
+        }
+        result.uploadedConcepts = concepts.length;
+      }
+
+      if (config.syncClinicalNotesEnabled) {
+        const notes: ClinicalNote[] = await ClinicalNoteRepository.getInstance().getAllNotes();
+        for (let i: number = 0; i < notes.length; i++) {
+          const cn: ClinicalNote = notes[i];
+          const data: SyncClinicalNoteData = new SyncClinicalNoteData();
+          data.id = cn.id;
+          data.title = cn.title;
+          data.pathogenesis = cn.pathogenesis || '';
+          data.treatment = cn.treatment || '';
+          data.prescription = cn.prescription || '';
+          data.notes = cn.notes || '';
+          data.isReading = cn.isReading;
+          data.createTime = cn.createTime || '';
+          data.lastModified = cn.lastModified || payload.exportTime;
+          payload.clinicalNotes.push(data);
+        }
+        result.uploadedClinicalNotes = notes.length;
       }
 
       const jsonContent: string = JSON.stringify(payload);
@@ -362,8 +434,6 @@ export class WebDavSyncService {
         }
       }
 
-      result.uploadedArticles = articles.length;
-      result.uploadedConcepts = concepts.length;
       config.lastSyncTime = new Date().toISOString();
       result.success = true;
     } catch (e) {
@@ -406,6 +476,7 @@ export class WebDavSyncService {
           article.isLongArticle = remote.isLongArticle || false;
           article.checkInDays = remote.checkInDays || 0;
           article.completionRate = remote.completionRate || 0;
+          article.imagewebp = remote.imagewebp || '';
           article.createTime = remote.createTime || remote.lastModified;
           article.lastModified = remote.lastModified || new Date().toISOString();
           await ArticleRepository.getInstance().insertArticle(article);
@@ -428,6 +499,7 @@ export class WebDavSyncService {
             existing.isLongArticle = remote.isLongArticle !== undefined ? remote.isLongArticle : existing.isLongArticle;
             existing.checkInDays = remote.checkInDays !== undefined ? remote.checkInDays : existing.checkInDays;
             existing.completionRate = remote.completionRate !== undefined ? remote.completionRate : existing.completionRate;
+            existing.imagewebp = remote.imagewebp !== undefined ? remote.imagewebp : existing.imagewebp;
             existing.createTime = remote.createTime || existing.createTime;
             existing.lastModified = remote.lastModified || new Date().toISOString();
             await ArticleRepository.getInstance().updateArticle(existing);
@@ -485,6 +557,53 @@ export class WebDavSyncService {
       
     } catch (e) {
       console.error('WebDAV mergeConcepts 失败: ' + JSON.stringify(e));
+    }
+    return mergedCount;
+  }
+
+  private async mergeClinicalNotes(remoteNotes: SyncClinicalNoteData[]): Promise<number> {
+    let mergedCount: number = 0;
+    try {
+      const existingNotes: ClinicalNote[] = await ClinicalNoteRepository.getInstance().getAllNotes();
+      const existingTitles: Map<string, ClinicalNote> = new Map<string, ClinicalNote>();
+      for (let i: number = 0; i < existingNotes.length; i++) {
+        existingTitles.set(existingNotes[i].title, existingNotes[i]);
+      }
+      console.info('WebDAV mergeClinicalNotes: 本地已有 clinicalNotes=' + existingNotes.length + ' 条');
+
+      for (let i: number = 0; i < remoteNotes.length; i++) {
+        const remote: SyncClinicalNoteData = remoteNotes[i];
+        const existing: ClinicalNote | undefined = existingTitles.get(remote.title);
+
+        if (!existing) {
+          const note: ClinicalNote = new ClinicalNote();
+          note.title = remote.title;
+          note.pathogenesis = remote.pathogenesis || '';
+          note.treatment = remote.treatment || '';
+          note.prescription = remote.prescription || '';
+          note.notes = remote.notes || '';
+          note.isReading = remote.isReading !== undefined ? remote.isReading : false;
+          note.createTime = remote.createTime || remote.lastModified;
+          note.lastModified = remote.lastModified || new Date().toISOString();
+          await ClinicalNoteRepository.getInstance().insertNote(note);
+          mergedCount++;
+        } else {
+          if (!existing.lastModified || (remote.lastModified && remote.lastModified > existing.lastModified)) {
+            existing.title = remote.title;
+            existing.pathogenesis = remote.pathogenesis !== undefined ? (remote.pathogenesis || '') : existing.pathogenesis;
+            existing.treatment = remote.treatment !== undefined ? (remote.treatment || '') : existing.treatment;
+            existing.prescription = remote.prescription !== undefined ? (remote.prescription || '') : existing.prescription;
+            existing.notes = remote.notes !== undefined ? (remote.notes || '') : existing.notes;
+            existing.isReading = remote.isReading !== undefined ? remote.isReading : existing.isReading;
+            existing.createTime = remote.createTime || existing.createTime;
+            existing.lastModified = remote.lastModified || new Date().toISOString();
+            await ClinicalNoteRepository.getInstance().updateNote(existing);
+            mergedCount++;
+          }
+        }
+      }
+    } catch (e) {
+      console.error('WebDAV mergeClinicalNotes 失败: ' + JSON.stringify(e));
     }
     return mergedCount;
   }

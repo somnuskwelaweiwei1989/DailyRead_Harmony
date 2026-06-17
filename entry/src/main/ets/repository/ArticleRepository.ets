@@ -38,6 +38,7 @@ export class ArticleRepository {
       const colIsLongArticle: number = result.getColumnIndex('isLongArticle');
       const colCheckInDays: number = result.getColumnIndex('checkInDays');
       const colCompletionRate: number = result.getColumnIndex('completionRate');
+      const colImageWebp: number = result.getColumnIndex('imagewebp');
       const colLastModified: number = result.getColumnIndex('lastModified');
       while (result.goToNextRow()) {
         const article: Article = new Article();
@@ -63,6 +64,7 @@ export class ArticleRepository {
         article.isLongArticle = result.getLong(colIsLongArticle) === 1;
         article.checkInDays = result.getLong(colCheckInDays);
         article.completionRate = Math.round(result.getDouble(colCompletionRate));
+        article.imagewebp = colImageWebp >= 0 && !result.isColumnNull(colImageWebp) ? result.getString(colImageWebp) : '';
         article.lastModified = result.getString(colLastModified);
         articles.push(article);
       }
@@ -98,6 +100,7 @@ export class ArticleRepository {
       const colIsLongArticle: number = result.getColumnIndex('isLongArticle');
       const colCheckInDays: number = result.getColumnIndex('checkInDays');
       const colCompletionRate: number = result.getColumnIndex('completionRate');
+      const colImageWebp: number = result.getColumnIndex('imagewebp');
       const colLastModified: number = result.getColumnIndex('lastModified');
       while (result.goToNextRow()) {
         const article: Article = new Article();
@@ -123,6 +126,7 @@ export class ArticleRepository {
         article.isLongArticle = result.getLong(colIsLongArticle) === 1;
         article.checkInDays = result.getLong(colCheckInDays);
         article.completionRate = Math.round(result.getDouble(colCompletionRate));
+        article.imagewebp = colImageWebp >= 0 && !result.isColumnNull(colImageWebp) ? result.getString(colImageWebp) : '';
         article.lastModified = result.getString(colLastModified);
         articles.push(article);
       }
@@ -158,6 +162,7 @@ export class ArticleRepository {
       const colIsLongArticle: number = result.getColumnIndex('isLongArticle');
       const colCheckInDays: number = result.getColumnIndex('checkInDays');
       const colCompletionRate: number = result.getColumnIndex('completionRate');
+      const colImageWebp: number = result.getColumnIndex('imagewebp');
       const colLastModified: number = result.getColumnIndex('lastModified');
       while (result.goToNextRow()) {
         const article: Article = new Article();
@@ -183,6 +188,7 @@ export class ArticleRepository {
         article.isLongArticle = result.getLong(colIsLongArticle) === 1;
         article.checkInDays = result.getLong(colCheckInDays);
         article.completionRate = Math.round(result.getDouble(colCompletionRate));
+        article.imagewebp = colImageWebp >= 0 && !result.isColumnNull(colImageWebp) ? result.getString(colImageWebp) : '';
         article.lastModified = result.getString(colLastModified);
         articles.push(article);
       }
@@ -213,6 +219,7 @@ export class ArticleRepository {
       isLongArticle: article.isLongArticle ? 1 : 0,
       checkInDays: article.checkInDays,
       completionRate: article.completionRate,
+      imagewebp: article.imagewebp,
       lastModified: article.lastModified
     };
     return await db.insert(TableNames.ARTICLES, valueBucket);
@@ -238,6 +245,7 @@ export class ArticleRepository {
       isLongArticle: article.isLongArticle ? 1 : 0,
       checkInDays: article.checkInDays,
       completionRate: article.completionRate,
+      imagewebp: article.imagewebp,
       lastModified: article.lastModified
     };
     const predicates = new relationalStore.RdbPredicates(TableNames.ARTICLES);

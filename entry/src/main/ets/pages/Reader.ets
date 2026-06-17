@@ -6,11 +6,16 @@ import { CheckInRepository } from '../repository/CheckInRepository';
 import { DailyTaskService } from '../service/DailyTaskService';
 import { DailyTaskRepository } from '../repository/DailyTaskRepository';
 import promptAction from '@ohos.promptAction';
+import image from '@ohos.multimedia.image';
+import { common } from '@kit.AbilityKit';
+import { ImageCompressionService, SizedPixelMap } from '../service/ImageCompressionService';
 
 @Entry
 @Component
 struct ReaderPage {
   @State article: Article | null = null;
+  @State articlePixelMap: image.PixelMap | null = null;
+  @State articlePixelRatio: number = 1.0; // width / height，用于等比自适应
   @State isLoading: boolean = true;
   @State isCheckedIn: boolean = false;
   @State showBars: boolean = false;
@@ -37,6 +42,7 @@ struct ReaderPage {
 
   async loadData(): Promise<void> {
     this.isLoading = true;
+    this.articlePixelMap = null;
     try {
       const allArticles: Article[] = await ArticleRepository.getInstance().getAllArticles();
       for (let i: number = 0; i < allArticles.length; i++) {
@@ -44,6 +50,29 @@ struct ReaderPage {
           this.article = allArticles[i];
           break;
         }
+      }
+
+      // 解码文章图片（WebP base64 → PixelMap + 尺寸）用于 Image 组件渲染
+      if (this.article !== null && this.article.imagewebp && this.article.imagewebp.length > 0) {
+        try {
+          const ctx: common.Context = getContext(this) as common.Context;
+          const sized: SizedPixelMap = await ImageCompressionService.base64ToPixelMap(
+            ctx, this.article.imagewebp
+          );
+          this.articlePixelMap = sized.pixelMap;
+          if (sized.height > 0) {
+            this.articlePixelRatio = sized.width / sized.height;
+          } else {
+            this.articlePixelRatio = 1.0;
+          }
+        } catch (imgErr) {
+          console.error('Reader: 图片解码失败: ' + JSON.stringify(imgErr));
+          this.articlePixelMap = null;
+          this.articlePixelRatio = 1.0;
+        }
+      } else {
+        this.articlePixelMap = null;
+        this.articlePixelRatio = 1.0;
       }
 
       const todayDate: Date = new Date();
@@ -236,6 +265,18 @@ struct ReaderPage {
                   .lineHeight(this.fontSize * 1.8)
                   .width('100%')
                   .textAlign(TextAlign.Start);
+
+                // ===== 文章图片（WebP）=====
+                // 宽度 100%，高度按原图比例自适应
+                if (this.articlePixelMap !== null) {
+                  Image(this.articlePixelMap)
+                    .width('100%')
+                    .aspectRatio(this.articlePixelRatio)
+                    .margin({ top: 24 })
+                    .borderRadius(8)
+                    .objectFit(ImageFit.Auto)
+                    .backgroundColor('#F5F5F5');
+                }
 
                 Column() {
                   if (this.isCheckedIn) {
